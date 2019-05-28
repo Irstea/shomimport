@@ -8,18 +8,23 @@
 error_reporting(E_ERROR);
 require_once 'lib/Message.php';
 require_once 'lib/fonctions.php';
-require_once 'lib/sonde.class.php';
+require_once 'lib/import.class.php';
 require_once 'lib/vue.class.php';
+require_once 'lib/ObjetBDD_functions.php';
+require_once 'lib/ObjetBDD.php';
+require_once 'lib/station.class.php';
+require_once 'lib/coef.class.php';
 $message = new Message();
+/**
+ * End of Treatment
+ */
+$eot = false;
 
 /**
  * Options par defaut
  */
-$paramfile = "param.ini";
-$format = "pcwin";
-$fileExtension = "csv";
-    $message->set("Sonde : conversion des données de sonde à partir d'un fichier csv ou excel non tabulé en fichier csv tabulé");
-    $message->set("Licence : MIT. Copyright © 2019 - Éric Quinton, pour Irstea - EABX - Cestas");
+$message->set("Marée : importation des coefficients de marée fournis par le SHOM");
+$message->set("Licence : MIT. Copyright © 2019 - Éric Quinton, pour Irstea - EABX - Cestas");
 /**
  * Traitement des options de la ligne de commande
  */
@@ -27,104 +32,117 @@ if ($argv[1] == "-h" || $argv[1] == "--help") {
 
     $message->set("Options :");
     $message->set("-h ou --help : ce message d'aide");
-    $message->set("--format=[pcwin|multi3630|hobo] : format des fichiers a traiter. Par défaut : pcwin");
-    $message->set("--numBac=1 : numéro du bac, quand l'information ne figure pas dans le fichier (import hobo)");
+    $message->set("--station=stationName : nom de la station (obligatoire)");
+    
+    $message->set("--dsn=pgsql:host=server;dbname=database;sslmode=require : PDO dsn (adresse de connexion au serveur selon la nomenclature PHP-PDO)");
+    $message->set("--login= : nom du login de connexion");
+    $message->set("--password= : mot de passe associé");
+    $message->set("--schema=public : nom du schéma contenant les tables");
+    $message->set("--source=source : nom du dossier contenant les fichiers source");
+    $message->set("--treated=treated : nom du dossier où les fichiers sont déplacés après traitement");
     $message->set("--param=param.ini : nom du fichier de paramètres (ne pas modifier sans bonne raison)");
-    $message->set("--export=fichier.csv : nom du fichier csv généré. Par défaut : format + date.csv");
+    $message->set("--filetype=csv : extension des fichiers à traiter");
     $message->set("--noMove : pas de déplacement des fichiers une fois traités");
     $message->set("Les fichiers à traiter doivent être déposés dans le dossier import");
-    $message->set("Le fichier généré est déposé dans le dossier export");
     $message->set("Une fois traités, les fichiers sont déplacés dans le dossier treated");
 } else {
     /**
- * Processing args
- */
+     * Processing args
+     */
     $moveFile = true;
     $numBac = "";
+    $params = array();
     for ($i = 1; $i <= count($argv); $i++) {
         $arg = explode("=", $argv[$i]);
-        switch ($arg[0]) {
-            case "--export":
-                $fileExport = $arg[1];
-                break;
-            case "--format":
-                $format = $arg[1];
-                break;
-            case "--param":
-                $paramfile = $arg[1];
-                break;
-            case "--noMove":
-                $moveFile = false;
-                break;
-            case "--numBac":
-                $numBac = $arg[1];
+        $params[$arg[0]] = $arg[1];
+    }
+}
+if (!isset($params["param"])) {
+    $params["param"] = "param.ini";
+}
+/**
+ * Recuperation des parametres depuis le fichier param.ini
+ * ne sont traitées que les valeurs dans la branche [general]
+ * 
+ */
+
+if (false !== ($param = parse_ini_file($params["param"], true))) {
+    foreach ($param["general"] as $key => $value) {
+        if (isset($params[$key])) {
+            $param["general"][$key] = $params[$key];
         }
     }
+}
 
-    /**
- * Recuperation des parametres
+/**
+ * Connexion à la base de données
  */
-    $param = parse_ini_file($paramfile, true);
-    $fileExport = $format . "-" . date('YmdHi') . "." . $fileExtension;
+try {
+    $pdo = connect($param);
+    $station = new Station($pdo);
+    $coef = new Coef($pdo);
+} catch (Exception $e) {
+    $message->set($e->getMessage());
+    $eot = true;
+}
+
+if (!$eot) {
     /**
- * Recuperation de la liste des fichiers a traiter
- */
+     * Recuperation de la liste des fichiers a traiter
+     */
     $files = array();
     try {
-        $folder = opendir($param[$format]["folder"]);
+        $folder = opendir($param["general"]["source"]);
         if ($folder) {
             $filesOnly = array();
             while (false !== ($filename = readdir($folder))) {
                 /**
-             * Extraction de l'extension
-             */
+                 * Extraction de l'extension
+                 */
 
                 $extension = (false === $pos = strrpos($filename, '.')) ? '' : strtolower(substr($filename, $pos + 1));
-                if ($extension == $param[$format]["filetype"]) {
-                    $filesOnly[] = $filename;
-                    $files[] = $param[$format]["folder"] . "/" . $filename;
+                if ($extension == $param["general"]["filetype"]) {
+                    $files[] = $filename;
                 }
             }
             closedir($folder);
         } else {
-            $message->set("Le dossier " . $param[$format]["folder"] . " n'existe pas");
+            $message->set("Le dossier " . $param["general"]["source"] . " n'existe pas");
         }
     } catch (Exception $e) {
-        $message->set("Le dossier " . $param[$format]["folder"] . " n'existe pas");
+        $message->set("Le dossier " . $param["general"]["source"] . " n'existe pas");
     }
 
     if (count($files) > 0) {
         /**
- * Declenchement de la lecture
- */
-        try {
-            $param[$format]["numBac"] = $numBac;
-            $result = $sonde->read($param, $files, $format);
-            if (count($result) > 0) {
-                /**
-         * Ecriture du fichier CSV
+         * Declenchement de la lecture
          */
-                $vueCsv = new VueCsv();
-                $vueCsv->set($result);
-                $vueCsv->send($param["general"]["export"] . "/" . $fileExport);
-                /**
-          * Deplacement des fichiers traites dans le dossier treated
-          */
-                foreach ($filesOnly as $file) {
-                    $message->set($param[$format]["folder"] . "/" . $file . " traité");
-                    if ($moveFile) {
-                        rename($param[$format]["folder"] . "/" . $file, $param["general"]["treated"] . "/" . $file);
+        $import = new Import();
+        try {
+            foreach ($files as $file) {
+                $data = $import->initFile($param["general"]["source"] . "/" . $file);
+                $pdo->beginTransaction();
+                foreach ($data as $row) {
+                    try {
+
+                        $pdo->commit();
+                        /**
+                         * Deplacement du fichier
+                         */
+                        if (!isset($params["noMove"])) {
+                            rename($param["general"]["source"] . "/" . $file, $param["general"]["treated"] . "/" . $file);
+                        }
+                    } catch (Exception $e) {
+                        $pdo->rollBack();
                     }
                 }
-            } else {
-                $message->set("Echec de préparation du fichier : les données sont vides");
             }
         } catch (Exception $e) {
             $message->set("Echec d'importation des fichiers");
             $message->set($e->getMessage());
         }
     } else {
-        $message->set("Pas de fichiers à traiter pour le format " . $format . " dans le dossier " . $param[$format]["folder"]);
+        $message->set("Pas de fichiers à traiter dans le dossier " . $param["general"]["folder"]);
     }
 }
 
