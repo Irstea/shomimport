@@ -33,7 +33,7 @@ if ($argv[1] == "-h" || $argv[1] == "--help") {
     $message->set("Options :");
     $message->set("-h ou --help : ce message d'aide");
     $message->set("--station=stationName : nom de la station (obligatoire)");
-    
+
     $message->set("--dsn=pgsql:host=server;dbname=database;sslmode=require : PDO dsn (adresse de connexion au serveur selon la nomenclature PHP-PDO)");
     $message->set("--login= : nom du login de connexion");
     $message->set("--password= : mot de passe associé");
@@ -73,6 +73,17 @@ if (false !== ($param = parse_ini_file($params["param"], true))) {
         }
     }
 }
+
+if (strlen($param["general"]["station"]) > 0) {
+    if (!isset($param[$param["general"]["station"]])) {
+        $message->set("Les paramètres n'existent pas pour la station " . $param["general"]["station"]);
+        $eot = true;
+    }
+} else {
+    $message->set("La station n'a pas été renseignée");
+    $eot = true;
+}
+$stationParam = $param[$param["general"]["station"]];
 
 /**
  * Connexion à la base de données
@@ -124,7 +135,7 @@ if (!$eot) {
                 $pdo->beginTransaction();
                 foreach ($data as $row) {
                     try {
-
+                        $coef->setValue($data, $stationParam);
                         $pdo->commit();
                         /**
                          * Deplacement du fichier
