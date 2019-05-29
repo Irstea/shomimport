@@ -12,12 +12,12 @@
   * @param array $param
   * @return pdo
   */
-function connect($param = array())
+function connect($dsn, $user, $password, $schema = "public")
 {
     try {
-        $pdo = new Pdo($param["dsn"], $param['user'], $param['password']);
-        if (isset($param["schema"])) {
-            $pdo->exec("set search_path=" . $param["schema"]);
+        $pdo = new Pdo($dsn, $user, $password);
+        if (isset($schema)) {
+            $pdo->exec("set search_path=" . $schema);
         }
         return $pdo;
     } catch (PDOException $e) {

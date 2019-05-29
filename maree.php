@@ -90,7 +90,7 @@ if (!$eot) {
      * Connexion à la base de données
      */
     try {
-        $pdo = connect($param["general"]);
+        $pdo = connect($param["general"]["dsn"], $param["general"]["user"],$param["general"]["password"],$param["general"]["schema"]);
         $station = new Station($pdo);
         $coef = new Coef($pdo);
     } catch (Exception $e) {
