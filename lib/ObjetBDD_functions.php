@@ -15,7 +15,7 @@
 function connect($param = array())
 {
     try {
-        $pdo = new Pdo($param["dsn"], $param["user"], $param["password"]);
+        $pdo = new Pdo($param["dsn"], $param['user'], $param['password']);
         if (isset($param["schema"])) {
             $pdo->exec("set search_path=" . $param["schema"]);
         }

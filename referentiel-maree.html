@@ -1,0 +1,158 @@
+<html>
+            <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <title>referentiel</title>
+            <style type="text/css">
+                /* Affichage de la structure de la base de donnees */
+.tablename {
+	background: #003A80;
+	font-size: large;
+    color: white;
+    font-weight:bold;
+    margin-top: 1em;
+}
+.tablecomment {
+	color:#009EE0;
+}
+h1 {
+    color: #003A80;
+}
+h2 {
+    color: #009EE0;
+    padding-top: 1em;
+}
+h3 {
+    color: #003A80;
+    font-weight:normal;
+}
+.datatable {
+    padding-bottom: 1em;
+}
+.center {
+    text-align: center;
+}
+            </style>
+            <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css">
+            <script type="text/javascript" charset="utf-8" src="https://code.jquery.com/jquery-3.3.1.js"></script>
+            <script type="text/javascript" charset="utf-8" src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+            </head>
+            <body>
+            <script>
+            $(document).ready( function () {
+                $(".datatable").DataTable( {
+                    "paging": false,
+                    "searching": false,
+                    "ordering": false,
+                    "info": false
+                });
+            } );
+            </script>
+            <h1>Structure of referentiel database</h1><p>Date generation: 29/05/2019 14:05:22</p><h2>Schema maree</h2><div id="mareecoef" class="tablename">coef</div><br><div class="tablecomment">List of all coefficients</div>.<br><table class="datatable row-border display"><thead><tr>
+                    <th>Column name</th>
+                    <th>Type</th>
+                    <th>Not null</th>
+                    <th>key</th>
+                    <th>Comment</th>
+                    </tr></thead><tbody><tr>
+                <td>coef_id</td>
+                <td>integer</td>
+                <td class="center">X</td>
+                <td class="center"></td>
+                <td></td>
+                </tr><tr>
+                <td>coef_type_id</td>
+                <td>integer</td>
+                <td class="center">X</td>
+                <td class="center"></td>
+                <td></td>
+                </tr><tr>
+                <td>station_id</td>
+                <td>integer</td>
+                <td class="center"></td>
+                <td class="center"></td>
+                <td></td>
+                </tr><tr>
+                <td>daydate</td>
+                <td>date</td>
+                <td class="center">X</td>
+                <td class="center"></td>
+                <td>Date of event</td>
+                </tr><tr>
+                <td>hour</td>
+                <td>time without time zone</td>
+                <td class="center">X</td>
+                <td class="center"></td>
+                <td>Hour of event</td>
+                </tr><tr>
+                <td>coef</td>
+                <td>double precision</td>
+                <td class="center">X</td>
+                <td class="center"></td>
+                <td>Coefficient</td>
+                </tr><tr>
+                <td>hight</td>
+                <td>double precision</td>
+                <td class="center"></td>
+                <td class="center"></td>
+                <td>Hight of water</td>
+                </tr></tbody></table><h3>References</h3>coef_type_id: maree.<a href="#mareecoef_type">coef_type</a> (coef_type_id)<br>station_id: maree.<a href="#mareestation">station</a> (station_id)<br><div id="mareecoef_type" class="tablename">coef_type</div><br><div class="tablecomment">List of types of coefficients</div>.<br><table class="datatable row-border display"><thead><tr>
+                    <th>Column name</th>
+                    <th>Type</th>
+                    <th>Not null</th>
+                    <th>key</th>
+                    <th>Comment</th>
+                    </tr></thead><tbody><tr>
+                <td>coef_type_id</td>
+                <td>integer</td>
+                <td class="center">X</td>
+                <td class="center">X</td>
+                <td></td>
+                </tr><tr>
+                <td>coef_type_name</td>
+                <td>character varying</td>
+                <td class="center">X</td>
+                <td class="center"></td>
+                <td></td>
+                </tr></tbody></table><h3>Referenced by</h3>coef_type_id: maree.<a href="#mareecoef">coef</a> (coef_type_id)<br><div id="mareestation" class="tablename">station</div><br><div class="tablecomment"></div>.<br><table class="datatable row-border display"><thead><tr>
+                    <th>Column name</th>
+                    <th>Type</th>
+                    <th>Not null</th>
+                    <th>key</th>
+                    <th>Comment</th>
+                    </tr></thead><tbody><tr>
+                <td>station_id</td>
+                <td>integer</td>
+                <td class="center">X</td>
+                <td class="center">X</td>
+                <td></td>
+                </tr><tr>
+                <td>station_name</td>
+                <td>character varying</td>
+                <td class="center">X</td>
+                <td class="center"></td>
+                <td></td>
+                </tr><tr>
+                <td>pmheure95</td>
+                <td>smallint</td>
+                <td class="center"></td>
+                <td class="center"></td>
+                <td>Décalage en minutes de la pleine mer, coefficient 95, par rapport à Royan</td>
+                </tr><tr>
+                <td>pmheure45</td>
+                <td>smallint</td>
+                <td class="center"></td>
+                <td class="center"></td>
+                <td>Décalage en minutes de la pleine mer, coefficient 45, par rapport à Royan</td>
+                </tr><tr>
+                <td>bmheure95</td>
+                <td>smallint</td>
+                <td class="center"></td>
+                <td class="center"></td>
+                <td>Décalage en minutes de la basse mer, coefficient 95, par rapport à Royan</td>
+                </tr><tr>
+                <td>bmheure45</td>
+                <td>smallint</td>
+                <td class="center"></td>
+                <td class="center"></td>
+                <td>Décalage en minutes de la basse mer, coefficient 45, par rapport à Royan</td>
+                </tr></tbody></table><h3>Referenced by</h3>station_id: maree.<a href="#mareecoef">coef</a> (station_id)<br></body></html>
