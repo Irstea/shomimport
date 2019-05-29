@@ -8,7 +8,7 @@ class Station extends ObjetBDD
             "station_id" => array("key" => 1, "type" => 1),
             "station_name" => array("type" => 0)
         );
-        parent::__construct($pdo, param);
+        parent::__construct($pdo, $param);
     }
     /**
      * Get station_id. If necessary, create station

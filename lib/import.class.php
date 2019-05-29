@@ -53,7 +53,7 @@ class Import
             /**
              * Recuperation de l'ensemble des donnees
              */
-            while(false !== ($data = readLine())){
+            while(false !== ($data = $this->readLine())){
                 $fileContent[] = $data;
             }
             $this->fileClose();

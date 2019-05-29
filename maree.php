@@ -32,8 +32,7 @@ if ($argv[1] == "-h" || $argv[1] == "--help") {
 
     $message->set("Options :");
     $message->set("-h ou --help : ce message d'aide");
-    $message->set("--station=stationName : nom de la station (obligatoire)");
-
+    $message->set("--station=stationName : nom de la station (obligatoire). Le nom doit correspondre à une section dans le fichier ini");
     $message->set("--dsn=pgsql:host=server;dbname=database;sslmode=require : PDO dsn (adresse de connexion au serveur selon la nomenclature PHP-PDO)");
     $message->set("--login= : nom du login de connexion");
     $message->set("--password= : mot de passe associé");
@@ -42,9 +41,10 @@ if ($argv[1] == "-h" || $argv[1] == "--help") {
     $message->set("--treated=treated : nom du dossier où les fichiers sont déplacés après traitement");
     $message->set("--param=param.ini : nom du fichier de paramètres (ne pas modifier sans bonne raison)");
     $message->set("--filetype=csv : extension des fichiers à traiter");
-    $message->set("--noMove : pas de déplacement des fichiers une fois traités");
+    $message->set("--noMove=1 : pas de déplacement des fichiers une fois traités");
     $message->set("Les fichiers à traiter doivent être déposés dans le dossier import");
     $message->set("Une fois traités, les fichiers sont déplacés dans le dossier treated");
+    $eot = true;
 } else {
     /**
      * Processing args
@@ -57,46 +57,48 @@ if ($argv[1] == "-h" || $argv[1] == "--help") {
         $params[$arg[0]] = $arg[1];
     }
 }
-if (!isset($params["param"])) {
-    $params["param"] = "param.ini";
-}
-/**
- * Recuperation des parametres depuis le fichier param.ini
- * ne sont traitées que les valeurs dans la branche [general]
- * 
- */
-
-if (false !== ($param = parse_ini_file($params["param"], true))) {
-    foreach ($param["general"] as $key => $value) {
-        if (isset($params[$key])) {
-            $param["general"][$key] = $params[$key];
-        }
+if (!$eot) {
+    if (!isset($params["param"])) {
+        $params["param"] = "./param.ini";
     }
-}
+    /**
+     * Recuperation des parametres depuis le fichier param.ini
+     * 
+     */
+    if (!file_exists($params["param"])) {
+        $message->set("Le fichier de paramètres " . $params["param"] . " n'existe pas");
+        $eot = true;
+    } else {
+        $param = parse_ini_file($params["param"], true);
+        foreach ($params as $key => $value) {
+            $param["general"][substr($key, 2)] = $value;
+        }
 
-if (strlen($param["general"]["station"]) > 0) {
-    if (!isset($param[$param["general"]["station"]])) {
-        $message->set("Les paramètres n'existent pas pour la station " . $param["general"]["station"]);
+        if (strlen($param["general"]["station"]) > 0) {
+            if (!isset($param[$param["general"]["station"]])) {
+                $message->set("Les paramètres n'existent pas pour la station " . $param["general"]["station"]);
+                $eot = true;
+            }
+        } else {
+            $message->set("La station n'a pas été renseignée");
+            $eot = true;
+        }
+        $stationParam = $param[$param["general"]["station"]];
+    }
+
+    /**
+     * Connexion à la base de données
+     */
+    try {
+        $pdo = connect($param["general"]);
+        $station = new Station($pdo);
+        $coef = new Coef($pdo);
+    } catch (Exception $e) {
+        $message->set("Erreur de connexion à la base de données :");
+        $message->set($e->getMessage());
         $eot = true;
     }
-} else {
-    $message->set("La station n'a pas été renseignée");
-    $eot = true;
 }
-$stationParam = $param[$param["general"]["station"]];
-
-/**
- * Connexion à la base de données
- */
-try {
-    $pdo = connect($param);
-    $station = new Station($pdo);
-    $coef = new Coef($pdo);
-} catch (Exception $e) {
-    $message->set($e->getMessage());
-    $eot = true;
-}
-
 if (!$eot) {
     /**
      * Recuperation de la liste des fichiers a traiter
@@ -129,28 +131,32 @@ if (!$eot) {
          * Declenchement de la lecture
          */
         $import = new Import();
-        try {
-            foreach ($files as $file) {
+        /**
+         * Recuperation de station_id
+         */
+        $station_id = $station->getIdFromNameOrCreate($param["general"]["station"]);
+
+        foreach ($files as $file) {
+            try {
                 $data = $import->initFile($param["general"]["source"] . "/" . $file);
                 $pdo->beginTransaction();
                 foreach ($data as $row) {
-                    try {
-                        $coef->setValue($data, $stationParam);
-                        $pdo->commit();
-                        /**
-                         * Deplacement du fichier
-                         */
-                        if (!isset($params["noMove"])) {
-                            rename($param["general"]["source"] . "/" . $file, $param["general"]["treated"] . "/" . $file);
-                        }
-                    } catch (Exception $e) {
-                        $pdo->rollBack();
-                    }
+                    $row["station_id"] = $station_id;
+                    $coef->setValue($row, $stationParam);
                 }
+                /**
+                 * Deplacement du fichier
+                 */
+                if ($param["general"]["noMove"] != 1) {
+                    rename($param["general"]["source"] . "/" . $file, $param["general"]["treated"] . "/" . $file);
+                }
+                $message->set("Fichier $file traité");
+                $pdo->commit();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $message->set("Echec d'importation des fichiers");
+                $message->set($e->getMessage());
             }
-        } catch (Exception $e) {
-            $message->set("Echec d'importation des fichiers");
-            $message->set($e->getMessage());
         }
     } else {
         $message->set("Pas de fichiers à traiter dans le dossier " . $param["general"]["folder"]);

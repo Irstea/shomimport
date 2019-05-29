@@ -22,3 +22,27 @@ function formatFiles($attributName = "documentName")
     } else $files[] = $fdata;
     return $files;
 }
+/**
+ * Affiche le nom et le contenu d'une variable
+ * @param array $tableau
+ */
+function printr($tableau, $mode_dump = 0)
+{
+    if ($mode_dump == 1) {
+        var_dump($tableau);
+    } else {
+        if (is_array($tableau)) {
+            print_r($tableau);
+        } else {
+            echo $tableau;
+        }
+    }
+    echo PHP_EOL;
+}
+
+function test($content = "")
+{
+    global $testOccurrence;
+    echo "test $testOccurrence : $content" . PHP_EOL;
+    $testOccurrence++;
+}
